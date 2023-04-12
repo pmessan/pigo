@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
@@ -18,9 +17,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/disintegration/imaging"
-	pigo "github.com/esimov/pigo/core"
-	"github.com/esimov/pigo/utils"
+	pigo "proglove_pigo/core"
+	"proglove_pigo/utils"
+
 	"github.com/fogleman/gg"
 	"golang.org/x/term"
 )
@@ -363,7 +362,7 @@ func (fd *faceDetector) drawFaces(faces []pigo.Detection, marker string) ([]dete
 		detections     = make([]detection, 0, len(faces))
 		eyesCoords     = make([]coord, 0, len(faces))
 		landmarkCoords = make([]coord, 0, len(faces))
-		puploc         *pigo.Puploc
+		// puploc         *pigo.Puploc
 	)
 
 	for _, face := range faces {
@@ -397,172 +396,9 @@ func (fd *faceDetector) drawFaces(faces []pigo.Detection, marker string) ([]dete
 				Scale: face.Scale,
 			}
 
-			dc.SetLineWidth(2.0)
-			dc.SetStrokeStyle(gg.NewSolidPattern(color.RGBA{R: 255, G: 0, B: 0, A: 255}))
-			dc.Stroke()
+			dc.SetFillStyle(gg.NewSolidPattern(color.RGBA{R: 128, G: 128, B: 128, A: 255}))
+			dc.Fill()
 
-			if len(det.puploc) > 0 && face.Scale > 50 {
-				rect := image.Rect(
-					face.Col-face.Scale/2,
-					face.Row-face.Scale/2,
-					face.Col+face.Scale/2,
-					face.Row+face.Scale/2,
-				)
-				rows, cols := rect.Max.X-rect.Min.X, rect.Max.Y-rect.Min.Y
-				ctx := gg.NewContext(rows, cols)
-				faceZone := ctx.Image()
-
-				// left eye
-				puploc = &pigo.Puploc{
-					Row:      face.Row - int(0.075*float32(face.Scale)),
-					Col:      face.Col - int(0.175*float32(face.Scale)),
-					Scale:    float32(face.Scale) * 0.25,
-					Perturbs: perturb,
-				}
-				leftEye := plc.RunDetector(*puploc, *imgParams, det.angle, false)
-				if leftEye.Row > 0 && leftEye.Col > 0 {
-					if det.angle > 0 {
-						drawEyeDetectionMarker(ctx,
-							float64(cols/2-(face.Col-leftEye.Col)),
-							float64(rows/2-(face.Row-leftEye.Row)),
-							float64(leftEye.Scale),
-							color.RGBA{R: 255, G: 0, B: 0, A: 255},
-							det.markDetEyes,
-						)
-						angle := (det.angle * 180) / math.Pi
-						rotated := imaging.Rotate(faceZone, 2*angle, color.Transparent)
-						final := imaging.FlipH(rotated)
-
-						dc.DrawImage(final, face.Col-face.Scale/2, face.Row-face.Scale/2)
-					} else {
-						drawEyeDetectionMarker(dc,
-							float64(leftEye.Col),
-							float64(leftEye.Row),
-							float64(leftEye.Scale),
-							color.RGBA{R: 255, G: 0, B: 0, A: 255},
-							det.markDetEyes,
-						)
-					}
-					eyesCoords = append(eyesCoords, coord{
-						Col:   leftEye.Row,
-						Row:   leftEye.Col,
-						Scale: int(leftEye.Scale),
-					})
-				}
-
-				// right eye
-				puploc = &pigo.Puploc{
-					Row:      face.Row - int(0.075*float32(face.Scale)),
-					Col:      face.Col + int(0.185*float32(face.Scale)),
-					Scale:    float32(face.Scale) * 0.25,
-					Perturbs: perturb,
-				}
-
-				rightEye := plc.RunDetector(*puploc, *imgParams, det.angle, false)
-				if rightEye.Row > 0 && rightEye.Col > 0 {
-					if det.angle > 0 {
-						drawEyeDetectionMarker(ctx,
-							float64(cols/2-(face.Col-rightEye.Col)),
-							float64(rows/2-(face.Row-rightEye.Row)),
-							float64(rightEye.Scale),
-							color.RGBA{R: 255, G: 0, B: 0, A: 255},
-							det.markDetEyes,
-						)
-						// convert radians to angle
-						angle := (det.angle * 180) / math.Pi
-						rotated := imaging.Rotate(faceZone, 2*angle, color.Transparent)
-						final := imaging.FlipH(rotated)
-
-						dc.DrawImage(final, face.Col-face.Scale/2, face.Row-face.Scale/2)
-					} else {
-						drawEyeDetectionMarker(dc,
-							float64(rightEye.Col),
-							float64(rightEye.Row),
-							float64(rightEye.Scale),
-							color.RGBA{R: 255, G: 0, B: 0, A: 255},
-							det.markDetEyes,
-						)
-					}
-					eyesCoords = append(eyesCoords, coord{
-						Col:   rightEye.Row,
-						Row:   rightEye.Col,
-						Scale: int(rightEye.Scale),
-					})
-				}
-
-				if len(det.flploc) > 0 {
-					for _, eye := range eyeCascades {
-						for _, flpc := range flpcs[eye] {
-							flp := flpc.GetLandmarkPoint(leftEye, rightEye, *imgParams, perturb, false)
-							if flp.Row > 0 && flp.Col > 0 {
-								drawEyeDetectionMarker(dc,
-									float64(flp.Col),
-									float64(flp.Row),
-									float64(flp.Scale*0.5),
-									color.RGBA{R: 0, G: 0, B: 255, A: 255},
-									false,
-								)
-								landmarkCoords = append(landmarkCoords, coord{
-									Col:   flp.Row,
-									Row:   flp.Col,
-									Scale: int(flp.Scale),
-								})
-							}
-
-							flp = flpc.GetLandmarkPoint(leftEye, rightEye, *imgParams, perturb, true)
-							if flp.Row > 0 && flp.Col > 0 {
-								drawEyeDetectionMarker(dc,
-									float64(flp.Col),
-									float64(flp.Row),
-									float64(flp.Scale*0.5),
-									color.RGBA{R: 0, G: 0, B: 255, A: 255},
-									false,
-								)
-								landmarkCoords = append(landmarkCoords, coord{
-									Col:   flp.Row,
-									Row:   flp.Col,
-									Scale: int(flp.Scale),
-								})
-							}
-						}
-					}
-
-					for _, mouth := range mouthCascades {
-						for _, flpc := range flpcs[mouth] {
-							flp := flpc.GetLandmarkPoint(leftEye, rightEye, *imgParams, perturb, false)
-							if flp.Row > 0 && flp.Col > 0 {
-								drawEyeDetectionMarker(dc,
-									float64(flp.Col),
-									float64(flp.Row),
-									float64(flp.Scale*0.5),
-									color.RGBA{R: 0, G: 0, B: 255, A: 255},
-									false,
-								)
-								landmarkCoords = append(landmarkCoords, coord{
-									Col:   flp.Row,
-									Row:   flp.Col,
-									Scale: int(flp.Scale),
-								})
-							}
-						}
-					}
-					flp := flpcs["lp84"][0].GetLandmarkPoint(leftEye, rightEye, *imgParams, perturb, true)
-					if flp.Row > 0 && flp.Col > 0 {
-						drawEyeDetectionMarker(dc,
-							float64(flp.Col),
-							float64(flp.Row),
-							float64(flp.Scale*0.5),
-							color.RGBA{R: 0, G: 0, B: 255, A: 255},
-							false,
-						)
-						landmarkCoords = append(landmarkCoords, coord{
-							Col:   flp.Row,
-							Row:   flp.Col,
-							Scale: int(flp.Scale),
-						})
-					}
-				}
-			}
 			detections = append(detections, detection{
 				FacePoints:     *faceCoord,
 				EyePoints:      eyesCoords,
@@ -602,18 +438,4 @@ func inSlice(item string, slice []string) bool {
 		}
 	}
 	return false
-}
-
-// drawEyeDetectionMarker is a helper function to draw the detection marks
-func drawEyeDetectionMarker(ctx *gg.Context, x, y, r float64, c color.RGBA, markDet bool) {
-	ctx.DrawArc(x, y, r*0.15, 0, 2*math.Pi)
-	ctx.SetFillStyle(gg.NewSolidPattern(c))
-	ctx.Fill()
-
-	if markDet {
-		ctx.DrawRectangle(x-(r*1.5), y-(r*1.5), r*3, r*3)
-		ctx.SetLineWidth(2.0)
-		ctx.SetStrokeStyle(gg.NewSolidPattern(color.RGBA{R: 255, G: 255, B: 0, A: 255}))
-		ctx.Stroke()
-	}
 }
