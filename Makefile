@@ -1,5 +1,5 @@
-all:
-	@./build.sh
+all: install-deps package
+
 clean:
 	@rm -f pigo
 install: all
@@ -7,4 +7,9 @@ install: all
 uninstall:
 	@rm -f /usr/local/bin/pigo
 package:
-	@NOCOPY=1 ./build.sh package
+	./build.sh package
+install-deps: 
+	go get -d ./...
+	go install golang.org/x/tools/cmd/goimports@latest 
+
+.PHONY: all install-deps package
