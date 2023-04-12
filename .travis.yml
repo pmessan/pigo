@@ -1,0 +1,14 @@
+# Configurations
+os: linux
+dist: focal
+language: go
+
+go:
+  - "1.13"
+
+deploy:
+  - provider: script
+    skip_cleanup: true
+    script: ./scripts/push_to_cloudsmith.sh
+    on:
+      tags: true
