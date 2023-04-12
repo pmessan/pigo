@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	pigo "github.com/esimov/pigo/core"
+	pigo "proglove_pigo/core"
 )
 
 var flpc []byte
